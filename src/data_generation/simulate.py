@@ -1,3 +1,4 @@
+import wandb
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
@@ -38,8 +39,8 @@ def simulate(mock_environment: MockEnvironment, simulation_config: SimulationCon
         
         simulation_row_by_prosumers : Dict[str, Dict] = {prosumer.name : [] for prosumer in mock_environment.prosumer_list}
 
-        simulate_day = (simulation_config.day_start + simulation_step_idx) % YEAR_LENGTH
-        simulate_year = simulation_config.year_start + (simulation_config.day_start + simulation_step_idx) // YEAR_LENGTH
+        simulate_day = (((simulation_config.day_start - 1) + simulation_step_idx) % YEAR_LENGTH) + 1
+        simulate_year = simulation_config.year_start + (simulation_config.day_start + simulation_step_idx - 1) // YEAR_LENGTH
 
         utility_day_buy_prices = mock_environment.utility_day_buy_prices_list[simulate_day] 
         utility_day_sell_prices = mock_environment.utility_day_sell_prices_list[simulate_day]
@@ -96,7 +97,8 @@ def simulate(mock_environment: MockEnvironment, simulation_config: SimulationCon
         )
         if step_reward is np.nan or step_reward is None:
             print(f"reward calculation failed on day {simulate_day}")
-
+        elif wandb.run is not None:
+            wandb.log({"step_reward": step_reward})
         for prosumer_name, simulation_row in simulation_row_by_prosumers.items():
             simulation_row["reward"] = step_reward
             write_data(simulation_row, prosumer_name, simulation_step_idx)

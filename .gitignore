@@ -1,6 +1,7 @@
 simulated_data/baseline
 **/__pycache__/
 /venv/
+wandb/
 
 **.csv
 **.json

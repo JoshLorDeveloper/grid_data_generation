@@ -1,4 +1,4 @@
-
+import wandb
 import argparse
 import pandas as pd
 from typing import Callable
@@ -75,7 +75,22 @@ def run(folder_name: str, price_generation_function: Callable, generate_batch_da
         write_data=get_save_simulation_data_function(folder_name=folder_name),
         batch_writer=batch_writer,
     )
-    
+
+def explicit_bool(parser, arg, nonable=False):
+    if arg == "None" and nonable:
+        return None
+    if isinstance(arg, bool):
+        return arg
+    if arg.lower() in ("yes", "true", "t", "y", "1"):
+        return True
+    elif arg.lower() in ("no", "false", "f", "n", "0"):
+        return False
+    else:
+        parser.error(
+            "Boolean value expected, instead got {}. Are None values allowed: {}".format(
+                arg, nonable
+            )
+        )
     
 if __name__ == "__main__":
         
@@ -88,7 +103,20 @@ if __name__ == "__main__":
     parser.add_argument("--prosumer_noise_scale", type=float, default=0.1)
     parser.add_argument("--generation_noise_scale", type=float, default=0.1)
     parser.add_argument("--num_simulation_steps", type=int, default=1000)
+    # Logging Arguments
+    parser.add_argument(
+        "-w",
+        "--wandb",
+        help="Whether to upload results to wandb. must have wandb key.",
+        type=lambda bool_arg: explicit_bool(parser, bool_arg, nonable=False),
+        default=False,
+    )
     args = parser.parse_args()
+    # Uploading logs to wandb
+    if args.wandb:
+        wandb.init(project="data-generation", entity="market-maker")
+        wandb.run.name = f"({args.offset_multiplier},{args.num_simulation_steps}){args.price_generation_function}-{wandb.run.name}--{args.folder_name}"
+        wandb.config.update(args)
     run(
         args.folder_name, 
         getattr(price_generation_functions, f"get_{args.price_generation_function}")(**vars(args)), 
