@@ -1,0 +1,6 @@
+simulated_data/baseline
+**/__pycache__/
+/venv/
+
+**.csv
+**.json

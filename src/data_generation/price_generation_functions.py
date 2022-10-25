@@ -1,6 +1,20 @@
 import numpy as np
 from.utils.constants import DAY_LENGTH
 
+def get_baseline_prices_generation_function(
+    **args,
+):
+    def baseline_prices_generation_function(
+        day:int, 
+        year:int, 
+        utility_day_buy_prices:np.ndarray, 
+        utility_day_sell_prices:np.ndarray,
+    ):
+        return utility_day_buy_prices, utility_day_sell_prices
+        
+    return baseline_prices_generation_function
+
+
 def get_constant_prices_generation_function(
     offset_multiplier=0.1,
     **args,

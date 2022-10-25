@@ -55,9 +55,16 @@ class MockEnvironment:
         prosumer_list : List[RealProsumer] = []
         
         column_labels = building_data_df.columns
-        hourly_solar_constants = np.squeeze(building_data_df.iloc[:, environment_data_descriptor.solar_gen_col_idx].values)
+        building_data_df['hour'] = pd.to_datetime(building_data_df.iloc[:,environment_data_descriptor.time_col_idx]).dt.hour
+        building_data_df['day'] = pd.to_datetime(building_data_df.iloc[:,environment_data_descriptor.time_col_idx]).dt.day_of_year
+        # correct for leap year, as data does not include leap days
+        if len(building_data_df[building_data_df['day'] == 59]) == 0:
+            building_data_df.loc[building_data_df['day'] > 59, 'day'] -= 1
+
+
+        hourly_solar_constants = building_data_df.pivot(index='day', columns='hour', values=building_data_df.columns[environment_data_descriptor.solar_gen_col_idx]).interpolate()
         for prosumer_idx, prosumer_col_idx in enumerate(environment_data_descriptor.prosumer_col_idx_list):
-            prosumer_demand = np.squeeze(building_data_df.iloc[:,prosumer_col_idx].values)
+            prosumer_demand = building_data_df.pivot(index='day', columns='hour', values=building_data_df.columns[prosumer_col_idx]).interpolate()
             prosumer = RealProsumer(
                 name=column_labels[prosumer_col_idx],
                 yearlongdemand=prosumer_demand,

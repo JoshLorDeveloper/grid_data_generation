@@ -30,9 +30,9 @@ class RealProsumer:
         self.yearlonggeneration = yearlonggeneration
         max_gen_by_hour = np.zeros(DAY_LENGTH)
         for day_number in range(0, YEAR_LENGTH):
-            index = day_number * DAY_LENGTH + 19
-            gen = pv_size * self.yearlonggeneration[index : index + DAY_LENGTH]
-            max_gen_by_hour = np.maximum(max_gen_by_hour, gen)
+            if day_number in self.yearlonggeneration.index:
+                gen = pv_size * self.yearlonggeneration.loc[day_number, :]
+                max_gen_by_hour = np.maximum(max_gen_by_hour, gen.fillna(0).values)
         self.maxgeneration = max_gen_by_hour
         self.battery_num = battery_num
         self.pv_size = pv_size
@@ -55,9 +55,8 @@ class RealProsumer:
                 sellprices: DAY_LENGTH hour price vector, supplied as an np.array
         """
 
-        index = day * DAY_LENGTH
-        load = self.yearlongdemand[index : index + DAY_LENGTH]
-        gen = self.pv_size * self.yearlonggeneration[index : index + DAY_LENGTH]
+        load = self.yearlongdemand.loc[day, :]
+        gen = self.pv_size * self.yearlonggeneration.loc[day, :]
         
         eta = self.eta
         capacity = self.capacity
