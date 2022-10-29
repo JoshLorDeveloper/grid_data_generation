@@ -16,7 +16,8 @@ import time
 
 def get_save_simulation_data_function(no_save=False, folder_name=None):
     timestr = time.strftime("%Y-%m-%d %Hh %Mm %Ss")
-    folder_path = Path(f"./simulated_data/{folder_name or timestr}")
+    specific_folder_path = f"{folder_name}/{timestr}" if folder_name else timestr
+    folder_path = Path(f"./simulated_data/{specific_folder_path}")
     if not no_save:
         folder_path.mkdir(parents=True, exist_ok=True)
     
@@ -44,7 +45,7 @@ def run(folder_name: str, price_generation_function: Callable, generate_batch_da
         temp_col_idx=None,
         prosumer_col_idx_list=list(range(4, 4 + num_prosumers)),
         battery_nums=[50]*num_prosumers,
-        pv_sizes=[100]*num_prosumers,
+        pv_sizes=[40]*num_prosumers,
         prosumer_noise_scale=prosumer_noise_scale,
         generation_noise_scale=generation_noise_scale,
     )

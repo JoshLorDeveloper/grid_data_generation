@@ -34,7 +34,7 @@ def simulate(mock_environment: MockEnvironment, simulation_config: SimulationCon
     """
     
     simulation_data_by_prosumers : Dict[str, List[Dict]] = {}
-    
+    total_reward = 0
     for simulation_step_idx in range(simulation_config.num_simulation_steps):
         
         simulation_row_by_prosumers : Dict[str, Dict] = {prosumer.name : [] for prosumer in mock_environment.prosumer_list}
@@ -42,14 +42,14 @@ def simulate(mock_environment: MockEnvironment, simulation_config: SimulationCon
         simulate_day = (((simulation_config.day_start - 1) + simulation_step_idx) % YEAR_LENGTH) + 1
         simulate_year = simulation_config.year_start + (simulation_config.day_start + simulation_step_idx - 1) // YEAR_LENGTH
 
-        utility_day_buy_prices = mock_environment.utility_day_buy_prices_list[simulate_day] 
-        utility_day_sell_prices = mock_environment.utility_day_sell_prices_list[simulate_day]
-        
+        utility_hourly_buy_price = mock_environment.utility_hourly_buy_prices.loc[simulate_day, :] 
+        utility_hourly_sell_price = mock_environment.utility_hourly_sell_prices.loc[simulate_day, :]
+
         microgrid_buy_prices, microgrid_sell_prices = simulation_config.prices_generation_function(
             simulate_day, 
             simulate_year, 
-            utility_day_buy_prices, 
-            utility_day_sell_prices,
+            utility_hourly_buy_price, 
+            utility_hourly_sell_price,
         )
                 
         general_step_data = {
@@ -98,7 +98,18 @@ def simulate(mock_environment: MockEnvironment, simulation_config: SimulationCon
         if step_reward is np.nan or step_reward is None:
             print(f"reward calculation failed on day {simulate_day}")
         elif wandb.run is not None:
-            wandb.log({"step_reward": step_reward})
+            total_reward+=step_reward
+            log_info = {
+                "simulation_step": simulation_step_idx, 
+                "step_reward": step_reward, 
+                "simulation_day": simulate_day,
+                "total_reward": total_reward
+            }
+            if mock_environment.weekday_dict[simulate_day]:
+                log_info["weekday_reward"] = step_reward
+            else:
+                log_info["weekend_reward"] = step_reward
+            wandb.log(log_info)
         for prosumer_name, simulation_row in simulation_row_by_prosumers.items():
             simulation_row["reward"] = step_reward
             write_data(simulation_row, prosumer_name, simulation_step_idx)
@@ -115,7 +126,7 @@ def simulate(mock_environment: MockEnvironment, simulation_config: SimulationCon
                     mock_environment.hourly_solar_constants[
                         (simulate_day * DAY_LENGTH) : (simulate_day * DAY_LENGTH) + DAY_LENGTH
                     ],
-                    utility_day_buy_prices,  
+                    utility_hourly_buy_price,  
                 ),
                 step_reward,
             )

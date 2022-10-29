@@ -27,25 +27,34 @@ class MockEnvironment:
         building_data_df: pd.DataFrame,
         environment_data_descriptor: EnvironmentDataDescriptor, 
     ):
+        building_data_df = MockEnvironment.add_time_info(building_data_df, environment_data_descriptor)
         self.prosumer_list, self.hourly_solar_constants = MockEnvironment.create_prosumers(building_data_df, environment_data_descriptor)
-        self.utility_day_buy_prices_list, self.utility_day_sell_prices_list = MockEnvironment.get_environment_constants(building_data_df, environment_data_descriptor)
+        self.utility_hourly_buy_prices, self.utility_hourly_sell_prices, self.weekday_dict = MockEnvironment.get_environment_constants(building_data_df, environment_data_descriptor)
     
+    def add_time_info(
+        building_data_df: pd.DataFrame,
+        environment_data_descriptor: EnvironmentDataDescriptor,
+    ):
+        datetime_col = pd.to_datetime(building_data_df.iloc[:,environment_data_descriptor.time_col_idx]).dt
+        building_data_df['hour'] = datetime_col.hour
+        building_data_df['day'] = datetime_col.day_of_year
+        building_data_df['is_weekday'] = datetime_col.weekday <= 4
+         # correct for leap year, as data does not include leap days
+        if len(building_data_df[building_data_df['day'] == 59]) == 0:
+            building_data_df.loc[building_data_df['day'] > 59, 'day'] -= 1
+        return building_data_df
     
     def get_environment_constants(
         building_data_df: pd.DataFrame,
         environment_data_descriptor: EnvironmentDataDescriptor,
     ):
-        utility_day_buy_prices_list = []
-        utility_day_sell_prices_list = []
+
+        utility_hourly_buy_prices = building_data_df.pivot(index='day', columns='hour', values=building_data_df.columns[environment_data_descriptor.price_col_idx])
+        utility_hourly_sell_prices = utility_hourly_buy_prices * 0.6
         
-        utility_buy_prices = np.squeeze(building_data_df.iloc[:, environment_data_descriptor.price_col_idx].values)
-        for day in range(YEAR_LENGTH):
-            day_buy_prices = utility_buy_prices[day * DAY_LENGTH: day * DAY_LENGTH + DAY_LENGTH]
-            day_sell_prices = 0.6 * day_buy_prices
-            utility_day_buy_prices_list.append(day_buy_prices)
-            utility_day_sell_prices_list.append(day_sell_prices)
+        weekday_dict = dict(zip(building_data_df['day'], building_data_df['is_weekday']))
         
-        return np.array(utility_day_buy_prices_list), np.array(utility_day_sell_prices_list)
+        return utility_hourly_buy_prices, utility_hourly_sell_prices, weekday_dict
 
         
     def create_prosumers(
@@ -55,12 +64,6 @@ class MockEnvironment:
         prosumer_list : List[RealProsumer] = []
         
         column_labels = building_data_df.columns
-        building_data_df['hour'] = pd.to_datetime(building_data_df.iloc[:,environment_data_descriptor.time_col_idx]).dt.hour
-        building_data_df['day'] = pd.to_datetime(building_data_df.iloc[:,environment_data_descriptor.time_col_idx]).dt.day_of_year
-        # correct for leap year, as data does not include leap days
-        if len(building_data_df[building_data_df['day'] == 59]) == 0:
-            building_data_df.loc[building_data_df['day'] > 59, 'day'] -= 1
-
 
         hourly_solar_constants = building_data_df.pivot(index='day', columns='hour', values=building_data_df.columns[environment_data_descriptor.solar_gen_col_idx]).interpolate()
         for prosumer_idx, prosumer_col_idx in enumerate(environment_data_descriptor.prosumer_col_idx_list):
@@ -68,7 +71,7 @@ class MockEnvironment:
             prosumer = RealProsumer(
                 name=column_labels[prosumer_col_idx],
                 yearlongdemand=prosumer_demand,
-                yearlonggeneration=0.001 * hourly_solar_constants,
+                yearlonggeneration= hourly_solar_constants,
                 battery_num=environment_data_descriptor.battery_nums[prosumer_idx],
                 pv_size=environment_data_descriptor.pv_sizes[prosumer_idx],
                 noise_scale=environment_data_descriptor.prosumer_noise_scale,
@@ -85,11 +88,10 @@ class MockEnvironment:
             Reward for RL agent (- |net money flow|): in order to get close to market equilibrium
             Reward for profit maximization is amount of money it generates (prices dot demand)
         """
-        buyprice_grid = np.asarray(
-            self.utility_day_buy_prices_list[for_day]
-        )  # external prices to buy from the grid
+        # external prices to buy from the grid
+        buyprice_grid = self.utility_hourly_buy_prices.loc[for_day, :]
         # external prices to sell to the grid
-        sellprice_grid = np.asarray(self.utility_day_sell_prices_list[for_day])
+        sellprice_grid = self.utility_hourly_sell_prices.loc[for_day, :]
         
         total_consumption = for_energy_consumptions["Total"]
 
@@ -101,12 +103,12 @@ class MockEnvironment:
         # Bool vector containing when prosumers sell to microgrid
         test_sell_to_grid = sell_prices > sellprice_grid
         # If buyprice from grid and buyprice from market equal (at all times?, why not only at any time) splits seal of electricity between the market and grid evenly
-        if np.all(buy_prices == buyprice_grid):
-            # CONSTANT
-            test_buy_from_grid = np.repeat(0.5, buyprice_grid.shape)
-        if np.all(sell_prices == sellprice_grid):
-            # CONSTANT
-            test_sell_to_grid = np.repeat(0.5, sellprice_grid.shape)
+        # if np.all(buy_prices == buyprice_grid):
+        #     # CONSTANT
+        #     test_buy_from_grid = np.repeat(0.5, buyprice_grid.shape)
+        # if np.all(sell_prices == sellprice_grid):
+        #     # CONSTANT
+        #     test_sell_to_grid = np.repeat(0.5, sellprice_grid.shape)
 
         # cost associated with net consumption of entire microgrid (from the perspective of the microgrid)
         # when prosumers are purchasing power from microgrid, if more power is consumed than is being produced on the grid, the grid must purchase from utility
