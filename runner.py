@@ -34,7 +34,7 @@ def get_save_simulation_data_function(no_save=False, folder_name=None):
     return save_simulation_data
         
 
-def run(folder_name: str, price_generation_function: Callable, generate_batch_data=False, prosumer_noise_scale=0.1, generation_noise_scale=0.1, num_simulation_steps=1000):
+def run(folder_name: str, price_generation_function: Callable, no_save=False, generate_batch_data=False, prosumer_noise_scale=0.1, generation_noise_scale=0.1, num_simulation_steps=1000, pv_size=20):
     # build environment
     num_prosumers = 49
     environment_data_descriptor = EnvironmentDataDescriptor(
@@ -45,7 +45,7 @@ def run(folder_name: str, price_generation_function: Callable, generate_batch_da
         temp_col_idx=None,
         prosumer_col_idx_list=list(range(4, 4 + num_prosumers)),
         battery_nums=[50]*num_prosumers,
-        pv_sizes=[40]*num_prosumers,
+        pv_sizes=[pv_size]*num_prosumers,
         prosumer_noise_scale=prosumer_noise_scale,
         generation_noise_scale=generation_noise_scale,
     )
@@ -73,7 +73,7 @@ def run(folder_name: str, price_generation_function: Callable, generate_batch_da
     simulate(
         mock_environment=mock_environment,
         simulation_config=simulation_config,
-        write_data=get_save_simulation_data_function(folder_name=folder_name),
+        write_data=get_save_simulation_data_function(folder_name=folder_name, no_save=no_save),
         batch_writer=batch_writer,
     )
 
@@ -97,10 +97,13 @@ if __name__ == "__main__":
         
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder_name", type=str)
+    parser.add_argument("--pv_size", type=float, default=20)
     parser.add_argument("--price_generation_function", type=str, default="constant_prices_generation_function")
     parser.add_argument("--offset_multiplier", type=float, default=0.1)
+    parser.add_argument("--off_peak_offset_multiplier", type=float, default=0)
     parser.add_argument("--scale_multiplier", type=float, default=0.1)
-    parser.add_argument("--generate_batch_data", default=False, action='store_true')
+    parser.add_argument("--no_save", type=lambda bool_arg: explicit_bool(parser, bool_arg, nonable=False), default=False)
+    parser.add_argument("--generate_batch_data", type=lambda bool_arg: explicit_bool(parser, bool_arg, nonable=False), default=False)
     parser.add_argument("--prosumer_noise_scale", type=float, default=0.1)
     parser.add_argument("--generation_noise_scale", type=float, default=0.1)
     parser.add_argument("--num_simulation_steps", type=int, default=1000)
@@ -118,11 +121,14 @@ if __name__ == "__main__":
         wandb.init(project="data-generation", entity="market-maker")
         wandb.run.name = f"({args.offset_multiplier},{args.num_simulation_steps}){args.price_generation_function}-{wandb.run.name}--{args.folder_name}"
         wandb.config.update(args)
+        
     run(
         args.folder_name, 
-        getattr(price_generation_functions, f"get_{args.price_generation_function}")(**vars(args)), 
+        getattr(price_generation_functions, f"get_{args.price_generation_function}")(**vars(args)),
+        args.no_save,
         args.generate_batch_data,
         args.prosumer_noise_scale,
         args.generation_noise_scale,
         args.num_simulation_steps,
+        args.pv_size
     )
