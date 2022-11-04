@@ -34,7 +34,7 @@ def get_save_simulation_data_function(no_save=False, folder_name=None):
     return save_simulation_data
         
 
-def run(folder_name: str, price_generation_function: Callable, no_save=False, generate_batch_data=False, prosumer_noise_scale=0.1, generation_noise_scale=0.1, num_simulation_steps=1000, pv_size=20):
+def run(folder_name: str, price_generation_function: Callable, no_save=False, generate_batch_data=False, prosumer_noise_scale=0.1, generation_noise_scale=0.1, num_simulation_steps=1000):
     # build environment
     num_prosumers = 49
     environment_data_descriptor = EnvironmentDataDescriptor(
@@ -45,11 +45,12 @@ def run(folder_name: str, price_generation_function: Callable, no_save=False, ge
         temp_col_idx=None,
         prosumer_col_idx_list=list(range(4, 4 + num_prosumers)),
         battery_nums=[50]*num_prosumers,
-        pv_sizes=[pv_size]*num_prosumers,
+        pv_sizes=None,
         prosumer_noise_scale=prosumer_noise_scale,
         generation_noise_scale=generation_noise_scale,
     )
     building_data_df = pd.read_csv("./building_data/building_demand_2016.csv").interpolate().fillna(0)
+    building_metadata_df =  pd.read_csv("./building_data/building_metadata.csv")
     mock_environment = MockEnvironment(
         building_data_df=building_data_df,
         environment_data_descriptor=environment_data_descriptor,
@@ -97,7 +98,6 @@ if __name__ == "__main__":
         
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder_name", type=str)
-    parser.add_argument("--pv_size", type=float, default=20)
     parser.add_argument("--price_generation_function", type=str, default="constant_prices_generation_function")
     parser.add_argument("--offset_multiplier", type=float, default=0.1)
     parser.add_argument("--off_peak_offset_multiplier", type=float, default=0)
@@ -130,5 +130,4 @@ if __name__ == "__main__":
         args.prosumer_noise_scale,
         args.generation_noise_scale,
         args.num_simulation_steps,
-        args.pv_size
     )

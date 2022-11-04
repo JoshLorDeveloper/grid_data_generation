@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 from .real_prosumer import RealProsumer
-from .utils.constants import DAY_LENGTH, YEAR_LENGTH
-from typing import Callable, List, Tuple
+from .utils.constants import DAY_LENGTH, YEAR_LENGTH, SOLAR_CONSTANT_INSTALLMENT_AREA
+from typing import Callable, List, Tuple, Optional
 
 @dataclass
 class EnvironmentDataDescriptor:
@@ -13,7 +13,7 @@ class EnvironmentDataDescriptor:
     solar_gen_col_idx: int
     temp_col_idx: int
     prosumer_col_idx_list: List[int]
-    pv_sizes: List[int]
+    pv_sizes: Optional[List[int]] # if None generate pv_sizes from buidling size
     battery_nums: List[int]
     prosumer_noise_scale: float
     generation_noise_scale: float
@@ -25,10 +25,11 @@ class MockEnvironment:
     def __init__(
         self,
         building_data_df: pd.DataFrame,
+        building_metadata_df: pd.DataFrame,
         environment_data_descriptor: EnvironmentDataDescriptor, 
     ):
         building_data_df = MockEnvironment.add_time_info(building_data_df, environment_data_descriptor)
-        self.prosumer_list, self.hourly_solar_constants = MockEnvironment.create_prosumers(building_data_df, environment_data_descriptor)
+        self.prosumer_list, self.hourly_solar_constants = MockEnvironment.create_prosumers(building_data_df, building_metadata_df, environment_data_descriptor)
         self.utility_hourly_buy_prices, self.utility_hourly_sell_prices, self.weekday_dict = MockEnvironment.get_environment_constants(building_data_df, environment_data_descriptor)
     
     def add_time_info(
@@ -58,7 +59,8 @@ class MockEnvironment:
 
         
     def create_prosumers(
-        building_data_df: pd.DataFrame, 
+        building_data_df: pd.DataFrame,
+        building_metadata_df: pd.DataFrame,
         environment_data_descriptor: EnvironmentDataDescriptor, 
     ) -> Tuple[List[RealProsumer], np.ndarray]:
         prosumer_list : List[RealProsumer] = []
@@ -67,13 +69,23 @@ class MockEnvironment:
 
         hourly_solar_constants = building_data_df.pivot(index='day', columns='hour', values=building_data_df.columns[environment_data_descriptor.solar_gen_col_idx]).interpolate()
         for prosumer_idx, prosumer_col_idx in enumerate(environment_data_descriptor.prosumer_col_idx_list):
+            prosumer_name = column_labels[prosumer_col_idx]
             prosumer_demand = building_data_df.pivot(index='day', columns='hour', values=building_data_df.columns[prosumer_col_idx]).interpolate()
+            
+            # calculate pv_size
+            if environment_data_descriptor.pv_sizes is None:
+                prosumer_building_sqm = building_metadata_df.loc[prosumer_name, "sqm"]
+                pv_size = prosumer_building_sqm / SOLAR_CONSTANT_INSTALLMENT_AREA
+            else:
+                pv_size = environment_data_descriptor.pv_sizes[prosumer_idx]
+            
+            
             prosumer = RealProsumer(
-                name=column_labels[prosumer_col_idx],
+                name=prosumer_name,
                 yearlongdemand=prosumer_demand,
                 yearlonggeneration= hourly_solar_constants,
                 battery_num=environment_data_descriptor.battery_nums[prosumer_idx],
-                pv_size=environment_data_descriptor.pv_sizes[prosumer_idx],
+                pv_size=pv_size,
                 noise_scale=environment_data_descriptor.prosumer_noise_scale,
                 generation_noise_scale=environment_data_descriptor.generation_noise_scale,
             )
