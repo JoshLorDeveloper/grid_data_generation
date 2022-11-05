@@ -1,8 +1,7 @@
 which python3
 python3 runner.py \
-	--wandb True \
+	--wandb False \
 	--folder_name reward_evaluation \
-	--pv_size 20 \
 	--num_simulation_steps 365 \
 	--price_generation_function constant_peak_day_prices_generation_function \
 	--offset_multiplier 0.1 \

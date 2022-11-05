@@ -50,9 +50,10 @@ def run(folder_name: str, price_generation_function: Callable, no_save=False, ge
         generation_noise_scale=generation_noise_scale,
     )
     building_data_df = pd.read_csv("./building_data/building_demand_2016.csv").interpolate().fillna(0)
-    building_metadata_df =  pd.read_csv("./building_data/building_metadata.csv")
+    building_metadata_df =  pd.read_csv("./building_data/building_metadata.csv", index_col="building_id")
     mock_environment = MockEnvironment(
         building_data_df=building_data_df,
+        building_metadata_df=building_metadata_df,
         environment_data_descriptor=environment_data_descriptor,
     )
     
