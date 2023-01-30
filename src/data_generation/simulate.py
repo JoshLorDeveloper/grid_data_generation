@@ -123,9 +123,7 @@ def simulate(mock_environment: MockEnvironment, simulation_config: SimulationCon
                 np.concatenate([microgrid_buy_prices, microgrid_sell_prices]),
                 get_observation(
                     prosumer_demand_dict["Total"],
-                    mock_environment.hourly_solar_constants[
-                        (simulate_day * DAY_LENGTH) : (simulate_day * DAY_LENGTH) + DAY_LENGTH
-                    ],
+                    mock_environment.hourly_solar_constants.loc[simulate_day, :],
                     utility_hourly_buy_price,  
                 ),
                 step_reward,

@@ -75,7 +75,7 @@ class MockEnvironment:
             # calculate pv_size
             if environment_data_descriptor.pv_sizes is None:
                 prosumer_building_sqm = building_metadata_df.loc[prosumer_name, "sqm"]
-                pv_size = prosumer_building_sqm / SOLAR_CONSTANT_INSTALLMENT_AREA
+                pv_size = prosumer_building_sqm / SOLAR_CONSTANT_INSTALLMENT_AREA * 1/2
             else:
                 pv_size = environment_data_descriptor.pv_sizes[prosumer_idx]
             

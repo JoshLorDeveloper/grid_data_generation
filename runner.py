@@ -2,6 +2,7 @@ import wandb
 import argparse
 import pandas as pd
 from typing import Callable
+from data_generation.utils.constants import BATTERY_NUMS, DAY_START, NUM_PROSUMERS, YEAR_START
 from src.data_generation.environment import EnvironmentDataDescriptor, MockEnvironment
 from src.data_generation.simulate import SimulationConfig, simulate
 from src.data_generation import price_generation_functions
@@ -36,15 +37,14 @@ def get_save_simulation_data_function(no_save=False, folder_name=None):
 
 def run(folder_name: str, price_generation_function: Callable, no_save=False, generate_batch_data=False, prosumer_noise_scale=0.1, generation_noise_scale=0.1, num_simulation_steps=1000):
     # build environment
-    num_prosumers = 49
     environment_data_descriptor = EnvironmentDataDescriptor(
         time_col_idx=1,
         day_of_week_col_idx=None,
         price_col_idx=3,
         solar_gen_col_idx=2,
         temp_col_idx=None,
-        prosumer_col_idx_list=list(range(4, 4 + num_prosumers)),
-        battery_nums=[50]*num_prosumers,
+        prosumer_col_idx_list=list(range(4, 4 + NUM_PROSUMERS)),
+        battery_nums=BATTERY_NUMS,
         pv_sizes=None,
         prosumer_noise_scale=prosumer_noise_scale,
         generation_noise_scale=generation_noise_scale,
@@ -60,11 +60,12 @@ def run(folder_name: str, price_generation_function: Callable, no_save=False, ge
     # build simulation
     simulation_config = SimulationConfig(
         num_simulation_steps=num_simulation_steps,
-        day_start=1,
-        year_start=2016,
+        day_start=DAY_START,
+        year_start=YEAR_START,
         prices_generation_function=price_generation_function,
     )
     
+    print(f"Is generating batch data: {generate_batch_data}")
     if generate_batch_data:
         batch_writer = BatchWriter(
             f"./batch_data/{folder_name}"
@@ -84,6 +85,7 @@ def explicit_bool(parser, arg, nonable=False):
         return None
     if isinstance(arg, bool):
         return arg
+    print(arg.lower())
     if arg.lower() in ("yes", "true", "t", "y", "1"):
         return True
     elif arg.lower() in ("no", "false", "f", "n", "0"):
